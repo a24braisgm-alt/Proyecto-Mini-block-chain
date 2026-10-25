@@ -5,60 +5,36 @@ import java.util.HexFormat;
 
 public class Workers {
     static void main(String[] args) {
-        Integer nonce = 0;
         String dificultad = "";
-        boolean valido = true;
-        String semilla = args[0];
-        String rutaFichero = args[1];
+        String hashAnterior = args[0];
+        String linea = args[1];
         int difficultad = Integer.parseInt(args[2]);
+        int start = Integer.parseInt(args[3]);
+        int end = Integer.parseInt(args[4]);
+
         for (int i = 0; i < difficultad; i++){
             dificultad = dificultad + "0";
         }
 
-        try {
-            File file = new File(rutaFichero);
-            BufferedReader br = new BufferedReader(new FileReader(file));
+        String hashOrigenSemilla = hashAnterior;
+        for(int nonce = start; nonce <= end; nonce++){
+            String contenidoParaElNuevoHash = hashOrigenSemilla + "|" + linea +  "|" + Integer.toString(nonce);
+            String hashNuevo = calcularHash(contenidoParaElNuevoHash);
 
-            String linea;
+            if (hashNuevo.startsWith(dificultad)){
+                System.out.println(nonce + "|" + hashNuevo);                /*
+                System.out.println("Datos: " + linea);
+                System.out.println("Nonce: " + nonce);
+                System.out.println("Contenido: " + contenidoParaElNuevoHash);
+                System.out.println("Hash Original de la Semilla: " + hashOrigenSemilla);
+                System.out.println("Hash nuevo: " + hashNuevo);
 
-            String hashOrigenSemilla = calcularHash(semilla);
-
-            while((linea = br.readLine()) != null) {
-                if(!linea.isBlank()) { //Si la linea no esta en blanco imprime en la terminal la linea
-                    nonce = 0;
-                    valido = true;
-                    while(valido){
-                        String contenidoParaElNuevoHash = hashOrigenSemilla + "|" + linea +  "|" + nonce.toString();
-                        String hashNuevo = calcularHash(contenidoParaElNuevoHash);
-
-                        if (!hashNuevo.startsWith(dificultad)){
-                            nonce++;
-
-                        } else{
-                            System.out.println("Datos: " + linea);
-                            System.out.println("Nonce: " + nonce);
-                            System.out.println("Contenido: " + contenidoParaElNuevoHash);
-                            System.out.println("Hash Original de la Semilla: " + hashOrigenSemilla);
-                            System.out.println("Hash nuevo: " + hashNuevo);
-
-                            System.out.println("\n");
-                            hashOrigenSemilla = hashNuevo;
-                            valido = false;
-                        }
-                    }
-
-                }
-
+                System.out.println("\n");
+                hashOrigenSemilla = hashNuevo;*/
+                return;
             }
-            br.close();
-
-        } catch (
-                FileNotFoundException e) {
-            throw new RuntimeException(e);
-        } catch (
-                IOException e) {
-            throw new RuntimeException(e);
         }
+        System.out.println("SIN_RESULTADO");
     }
 
     public static String calcularHash(String texto) {

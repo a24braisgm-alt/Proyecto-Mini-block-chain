@@ -14,18 +14,37 @@ public class Main {
     private static final int N_PROCESOS = 4;
 
     public static void main(String[] args) {
-
         Scanner sc = new Scanner(System.in);
-        /*System.out.println("=== Porfavor introduzca la semilla ===");
-        String semilla = sc.nextLine();
-        System.out.println(" === Porfavor introduzca la ruta del fichero ===");
-        String rutaFichero = sc.nextLine();*/
+        int numeroProcesos = N_PROCESOS;
 
-        String semilla = "Atun con mayonesa";
-        String rutaFichero = "src/datos.txt";
+        //String semilla = "Atun con mayonesa";
+        //String rutaFichero = "src/datos.txt";
+
+        System.out.println("=== Porfavor introduzca la semilla ===");
+        String semilla = sc.nextLine();
+
+        if(semilla.isBlank()){
+            System.out.println("Semilla proporcionada invalida");
+            return;
+        }
+
+        System.out.println(" === Porfavor introduzca la ruta del fichero ===");
+        String rutaFichero = sc.nextLine();
+
+        if (rutaFichero.isBlank()){
+            System.out.println("Ruta proporcionada inválida");
+            return;
+        }
+
+        File f = new File(rutaFichero);
+
+        if (!f.exists() || !f.isFile() || !f.canRead()) {
+            System.out.println("El fichero no existe o no se puede leer");
+            return;
+        }
 
         String hashAnterior = calcularHash(semilla);
-        int numeroProcesos = N_PROCESOS;
+
 
         try (BufferedReader br = new BufferedReader(
                 new FileReader(rutaFichero))) {
@@ -123,8 +142,7 @@ public class Main {
 
                                 hashEncontrado = hash;
 
-                                System.out.println(
-                                        "Hash encontrado: " + hash);
+                                System.out.println("Hash encontrado: " + hash +" Nonce usado: " + nonce);
 
                                 // Detenemos los otros procesos
                                 for (int j = 0; j < procesos.size(); j++) {
@@ -149,10 +167,18 @@ public class Main {
                     // Esperamos a que terminen los procesos.
                     for (Process proceso : procesos) {
                         try {
-                            proceso.waitFor();
+                            int codigo = proceso.waitFor();
+
+                            if (codigo != 0) {
+                                System.out.println(
+                                        "Error en un proceso Worker. Código: " + codigo
+                                );
+                            }
+
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
-                            throw new RuntimeException(e);
+                            System.out.println("Se interrumpió la espera de los procesos.");
+                            return;
                         }
                     }
 
@@ -197,7 +223,7 @@ public class Main {
 
             // Esta linea realiza dos operaciones: Transforma el texto en una secuencia de bytes y
             // calcula el SHA-256 de esos valores
-            byte[] hashBytes = md.digest(texto.getBytes());
+            byte[] hashBytes = md.digest(texto.getBytes(StandardCharsets.UTF_8));
 
             // Retorna los bytes como una cadena hexadecimal. HexFormat es la clase para trabajar
             // con hexadecimal, HexFormat.of obtiene un formateador hexadecimal predeterminado y

@@ -1,115 +1,189 @@
+
 import java.io.*;
-import java.nio.file.Files;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.Scanner;
 
-class Main{
+public class Main {
 
-    public static final int n = 1000;
+    private static final int n = 1000;
     private static final int DIFFICULTY = 3;
     private static final int N_PROCESOS = 4;
 
-    static void main(String[] args) {
+    public static void main(String[] args) {
+
         Scanner sc = new Scanner(System.in);
         /*System.out.println("=== Porfavor introduzca la semilla ===");
         String semilla = sc.nextLine();
         System.out.println(" === Porfavor introduzca la ruta del fichero ===");
-        String rutaFichero = sc.nextLine();
-        */
+        String rutaFichero = sc.nextLine();*/
 
-        // === Vamos a usar chunks para nonce osea dividiremos para cada proceso un rango que seran
-        // los nonce que probaran hasta encontrar un resultado
         String semilla = "Atun con mayonesa";
         String rutaFichero = "src/datos.txt";
-        int rangosDePrueba = n;
-        int numeroProcesos = Math.max(1,N_PROCESOS);
-        int chunkSize = (int) Math.ceil((double) rangosDePrueba / numeroProcesos);//Ceil redondea
-        String linea;
+
         String hashAnterior = calcularHash(semilla);
+        int numeroProcesos = N_PROCESOS;
 
-        File file = new File(rutaFichero);
-        try {
-            BufferedReader br = new BufferedReader(new FileReader(file));
-            while((linea = br.readLine()) != null) {
-                if(!linea.isBlank()) {
-                    ArrayList<Process> procesos = new ArrayList<>();
-                    ArrayList<BufferedReader> lectores = new ArrayList<>();
-                for(int i = 0; i<numeroProcesos;i++) {
-                    int start = i * chunkSize;
-                    int end = Math.min(rangosDePrueba - 1, start + chunkSize - 1);
+        try (BufferedReader br = new BufferedReader(
+                new FileReader(rutaFichero))) {
 
-                    try {
-                        String cp = System.getProperty("java.class.path");
-                        ProcessBuilder pb = new ProcessBuilder("java", "-cp", cp, "Workers",
-                                hashAnterior,
-                                linea,
-                                Integer.toString(DIFFICULTY),
-                                String.valueOf(start),
-                                String.valueOf(end));
-                        Process procesoHijo = pb.start();
-                        procesos.add(procesoHijo);
-                        BufferedReader br2 = new BufferedReader(new InputStreamReader(procesoHijo.getInputStream()));
-                        lectores.add(br2);
+            String linea;
 
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
+            //Recorre las lineas del fichero
+            while ((linea = br.readLine()) != null) {
+
+                if (linea.isBlank()) {
+                    continue;
                 }
 
                 String hashEncontrado = null;
+                int inicio = 0;
+                int rango = n;
 
-                for (BufferedReader br2 : lectores) {
-                    try {
-                        String resultado = br2.readLine();
+                // Busca un hash válido para la línea actual
+                while (hashEncontrado == null) {
 
-                        if (resultado != null && !resultado.equals("SIN_RESULTADO") && hashEncontrado == null) {
+                    int finLote = inicio + rango - 1;
+                    int chunkSize = (int) Math.ceil(
+                            (double) rango / numeroProcesos);
+
+                    ArrayList<Process> procesos = new ArrayList<>();
+                    ArrayList<BufferedReader> lectores = new ArrayList<>();
+
+                    // Lanzamos los cuatro workers para buscar un hash valido
+                    for (int i = 0; i < numeroProcesos; i++) {
+
+                        int start = inicio + i * chunkSize;
+                        int end = Math.min(
+                                finLote, start + chunkSize - 1);
+
+                        if (start > finLote) {
+                            break;
+                        }
+
+                        try {
+                            String cp = System.getProperty("java.class.path");
+
+                            ProcessBuilder pb = new ProcessBuilder(
+                                    "java", "-cp", cp, "Workers",
+                                    hashAnterior,
+                                    linea,
+                                    String.valueOf(DIFFICULTY),
+                                    String.valueOf(start),
+                                    String.valueOf(end)
+                            );
+
+                            pb.redirectError(ProcessBuilder.Redirect.INHERIT);
+
+                            Process proceso = pb.start();
+                            procesos.add(proceso);
+
+                            BufferedReader lector = new BufferedReader(
+                                    new InputStreamReader(
+                                            proceso.getInputStream()));
+
+                            lectores.add(lector);
+
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    // Leemos los resultados y miramos si el hash es valido
+                    for (int i = 0; i < lectores.size(); i++) {
+
+                        try {
+                            String resultado = lectores.get(i).readLine();
+
+                            if (resultado == null
+                                    || resultado.equals("SIN_RESULTADO")) {
+                                continue;
+                            }
+
                             String[] partes = resultado.split("\\|");
+
+                            if (partes.length < 2) {
+                                continue;
+                            }
 
                             int nonce = Integer.parseInt(partes[0]);
                             String hash = partes[1];
 
-                            String contenido = hashAnterior + "|" + linea + "|" + nonce;
+                            String contenido = hashAnterior + "|"
+                                    + linea + "|" + nonce;
+
                             String hashCalculado = calcularHash(contenido);
 
                             if (hashCalculado.equals(hash)
-                                    && hash.startsWith("0".repeat(DIFFICULTY))) {
+                                    && hash.startsWith(
+                                    "0".repeat(DIFFICULTY))) {
+
                                 hashEncontrado = hash;
+
+                                System.out.println(
+                                        "Hash encontrado: " + hash);
+
+                                // Detenemos los otros procesos
+                                for (int j = 0; j < procesos.size(); j++) {
+                                    if (j != i) {
+                                        // destroyForcibly fuerza la terminación del proceso
+                                        // Es diferente del destroy normal que solicita la terminación
+                                        // Es equivalente en comportamiento a SIGKILL
+                                        // Se uso debido a que permite terminar un proceso directamente desde java y
+                                        // SIGKILL no funcion en mi equipo de casa que es un Windows
+                                        procesos.get(j).destroyForcibly();
+                                    }
+                                }
+
+                                break;
                             }
+
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
                         }
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
+                    }
+
+                    // Esperamos a que terminen los procesos.
+                    for (Process proceso : procesos) {
+                        try {
+                            proceso.waitFor();
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new RuntimeException(e);
+                        }
+                    }
+
+                    // Si nadie encontró un hash, ampliamos el rango.
+                    if (hashEncontrado == null) {
+                        inicio += rango;
+                        rango *= 2;
+
+                        System.out.println(
+                                "Ampliando búsqueda. Próximo inicio: "
+                                        + inicio);
+                    }
+
+                    for (BufferedReader lector : lectores) {
+                        try {
+                            lector.close();
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
                     }
                 }
 
-                for(Process proceso :procesos){
-                    try {
-                        proceso.waitFor();
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+                // Actualizamos la cadena para el siguiente bloque del fichero.
+                hashAnterior = hashEncontrado;
 
-                if (hashEncontrado != null) {
-                    hashAnterior = hashEncontrado;
-                    System.out.println("Hash aceptado: " + hashAnterior);
-                }
+                System.out.println("Hash aceptado: " + hashAnterior);
             }
 
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
-        br.close();
-    } catch (FileNotFoundException e) {
-        throw new RuntimeException(e);
-    } catch (IOException e) {
-        throw new RuntimeException(e);
-    }
-
-    }
-
-    public static int chunkSizeCalculator(){
-        return n / N_PROCESOS;
     }
 
     public static String calcularHash(String texto) {
@@ -134,5 +208,4 @@ class Main{
             throw new RuntimeException(e);
         }
     }
-
 }

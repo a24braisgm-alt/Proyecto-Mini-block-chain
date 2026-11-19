@@ -216,7 +216,7 @@ public class Main {
         try {
 
             // MessageDigest es una clase que permite calcular resúmenes criptográficos
-            // (Es un procedimiento matemático definido que se utiliza para transformar
+            // (Es un procedimiento matemático que se utiliza para transformar
             // información o generar valores criptográficos) y solicita un instacia de SHA-256
 
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -225,7 +225,7 @@ public class Main {
             // calcula el SHA-256 de esos valores
             byte[] hashBytes = md.digest(texto.getBytes(StandardCharsets.UTF_8));
 
-            // Retorna los bytes como una cadena hexadecimal. HexFormat es la clase para trabajar
+            // Hace un return de los bytes como una cadena hexadecimal. HexFormat es la clase para trabajar
             // con hexadecimal, HexFormat.of obtiene un formateador hexadecimal predeterminado y
             // .formatHex(hashBytes) tranforma el array en texto hexadecimal
             return HexFormat.of().formatHex(hashBytes);

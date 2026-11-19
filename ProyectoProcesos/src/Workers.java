@@ -4,7 +4,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 
 public class Workers {
-    static void main(String[] args) {
+    public static void main(String[] args) {
         String dificultad = "";
         String hashAnterior = args[0];
         String linea = args[1];

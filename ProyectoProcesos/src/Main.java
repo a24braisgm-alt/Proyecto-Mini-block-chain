@@ -1,4 +1,3 @@
-
 import java.io.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -39,7 +38,7 @@ public class Main {
         File f = new File(rutaFichero);
 
         if (!f.exists() || !f.isFile() || !f.canRead()) {
-            System.out.println("El fichero no existe o no se puede leer");
+            System.out.println("El fichero no existe o no se puede leer: " + f.getAbsolutePath());
             return;
         }
 
@@ -47,7 +46,7 @@ public class Main {
 
 
         try (BufferedReader br = new BufferedReader(
-                new FileReader(rutaFichero))) {
+                new FileReader(f, StandardCharsets.UTF_8))) {
 
             String linea;
 
@@ -70,6 +69,7 @@ public class Main {
                             (double) rango / numeroProcesos);
 
                     ArrayList<Process> procesos = new ArrayList<>();
+                    java.util.Set<Process> cancelados = new java.util.HashSet<>();
                     ArrayList<BufferedReader> lectores = new ArrayList<>();
 
                     // Lanzamos los cuatro workers para buscar un hash valido
@@ -152,6 +152,7 @@ public class Main {
                                         // Es equivalente en comportamiento a SIGKILL
                                         // Se uso debido a que permite terminar un proceso directamente desde java y
                                         // SIGKILL no funcion en mi equipo de casa que es un Windows
+                                        cancelados.add(procesos.get(j));
                                         procesos.get(j).destroyForcibly();
                                     }
                                 }
@@ -169,7 +170,7 @@ public class Main {
                         try {
                             int codigo = proceso.waitFor();
 
-                            if (codigo != 0) {
+                            if (codigo != 0 && !cancelados.contains(proceso)) {
                                 System.out.println(
                                         "Error en un proceso Worker. Código: " + codigo
                                 );
@@ -214,9 +215,8 @@ public class Main {
 
     public static String calcularHash(String texto) {
         try {
-
             // MessageDigest es una clase que permite calcular resúmenes criptográficos
-            // (Es un procedimiento matemático que se utiliza para transformar
+            // (Es un procedimiento matemático definido que se utiliza para transformar
             // información o generar valores criptográficos) y solicita un instacia de SHA-256
 
             MessageDigest md = MessageDigest.getInstance("SHA-256");
@@ -225,7 +225,7 @@ public class Main {
             // calcula el SHA-256 de esos valores
             byte[] hashBytes = md.digest(texto.getBytes(StandardCharsets.UTF_8));
 
-            // Hace un return de los bytes como una cadena hexadecimal. HexFormat es la clase para trabajar
+            // Retorna los bytes como una cadena hexadecimal. HexFormat es la clase para trabajar
             // con hexadecimal, HexFormat.of obtiene un formateador hexadecimal predeterminado y
             // .formatHex(hashBytes) tranforma el array en texto hexadecimal
             return HexFormat.of().formatHex(hashBytes);
